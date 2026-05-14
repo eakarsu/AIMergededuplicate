@@ -1,20 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
-import { ScrollText, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 export default function AuditLog() {
   const [logs, setLogs] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
   const [filters, setFilters] = useState({ entity_type: '', action: '' });
 
-  const load = async () => {
+  const load = async (p = 1) => {
     setLoading(true);
-    try { setLogs(await api.getAuditLog(filters)); } catch (err) { console.error(err); }
+    try {
+      const data = await api.getAuditLog({ ...filters, page: p, limit: 50 });
+      setLogs(data.data || data);
+      setTotal(data.total || (data.data || data).length);
+      setTotalPages(data.totalPages || 1);
+      setPage(p);
+    } catch (err) { console.error(err); }
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [filters.entity_type, filters.action]);
+  useEffect(() => { load(1); }, [filters.entity_type, filters.action]);
 
   const getActionColor = (action) => {
     switch(action) {
@@ -32,7 +41,10 @@ export default function AuditLog() {
   return (
     <div>
       <div className="page-header">
-        <div><h2>Audit Log</h2><p>Complete history of all system actions</p></div>
+        <div>
+          <h2>Audit Log</h2>
+          <p>Complete history of all system actions — {total} entries</p>
+        </div>
       </div>
 
       <div className="filter-bar" style={{ marginBottom: 16 }}>
@@ -42,6 +54,7 @@ export default function AuditLog() {
           <option value="vendor">Vendors</option>
           <option value="category">Categories</option>
           <option value="duplicate_group">Duplicates</option>
+          <option value="duplicates">Duplicates (API)</option>
           <option value="bulk_import">Imports</option>
           <option value="ai_job">AI Jobs</option>
         </select>
@@ -62,6 +75,7 @@ export default function AuditLog() {
             <thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Entity</th><th>ID</th><th>IP</th></tr></thead>
             <tbody>
               {loading ? <tr><td colSpan={6}><div className="loading"><div className="spinner" />Loading...</div></td></tr> :
+              logs.length === 0 ? <tr><td colSpan={6}><div style={{ padding: 24, textAlign: 'center', color: '#64748b' }}>No audit entries found</div></td></tr> :
               logs.map(l => (
                 <tr key={l.id} onClick={() => setSelected(l)}>
                   <td style={{ fontSize: 12 }}>{new Date(l.created_at).toLocaleString()}</td>
@@ -75,6 +89,15 @@ export default function AuditLog() {
             </tbody>
           </table>
         </div>
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
+            <span style={{ fontSize: 13, color: '#64748b' }}>Page {page} of {totalPages} — {total} total</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-secondary btn-sm" disabled={page <= 1} onClick={() => load(page - 1)}>Prev</button>
+              <button className="btn btn-secondary btn-sm" disabled={page >= totalPages} onClick={() => load(page + 1)}>Next</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {selected && (
@@ -94,7 +117,7 @@ export default function AuditLog() {
               <div className="detail-field">
                 <label>Previous Data</label>
                 <pre style={{ background: '#fef2f2', padding: 12, borderRadius: 8, fontSize: 12, overflow: 'auto', border: '1px solid #fecaca' }}>
-                  {JSON.stringify(selected.old_data, null, 2)}
+                  {typeof selected.old_data === 'string' ? selected.old_data : JSON.stringify(selected.old_data, null, 2)}
                 </pre>
               </div>
             )}
@@ -102,7 +125,7 @@ export default function AuditLog() {
               <div className="detail-field">
                 <label>New Data</label>
                 <pre style={{ background: '#f0fdf4', padding: 12, borderRadius: 8, fontSize: 12, overflow: 'auto', border: '1px solid #bbf7d0' }}>
-                  {JSON.stringify(selected.new_data, null, 2)}
+                  {typeof selected.new_data === 'string' ? selected.new_data : JSON.stringify(selected.new_data, null, 2)}
                 </pre>
               </div>
             )}

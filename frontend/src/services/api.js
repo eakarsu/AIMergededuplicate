@@ -40,11 +40,15 @@ export const api = {
   deleteProduct: (id) => request(`/products/${id}`, { method: 'DELETE' }),
 
   // Vendors
-  getVendors: () => request('/vendors'),
+  getVendors: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/vendors?${qs}`);
+  },
   getVendor: (id) => request(`/vendors/${id}`),
   createVendor: (data) => request('/vendors', { method: 'POST', body: JSON.stringify(data) }),
   updateVendor: (id, data) => request(`/vendors/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteVendor: (id) => request(`/vendors/${id}`, { method: 'DELETE' }),
+  updateVendorReliability: (id) => request(`/vendors/${id}/update-reliability`, { method: 'POST' }),
 
   // Categories
   getCategories: () => request('/categories'),
@@ -54,7 +58,7 @@ export const api = {
   deleteCategory: (id) => request(`/categories/${id}`, { method: 'DELETE' }),
 
   // Duplicates
-  getDuplicates: (status) => request(`/duplicates${status ? `?status=${status}` : ''}`),
+  getDuplicates: (status, page = 1, limit = 50) => request(`/duplicates?${new URLSearchParams({ ...(status ? { status } : {}), page, limit }).toString()}`),
   getDuplicate: (id) => request(`/duplicates/${id}`),
   detectDuplicates: (id1, id2) => request('/duplicates/detect', { method: 'POST', body: JSON.stringify({ product_id_1: id1, product_id_2: id2 }) }),
   autoDetect: () => request('/duplicates/auto-detect', { method: 'POST' }),
@@ -67,13 +71,19 @@ export const api = {
   suggestCategory: (name, desc) => request('/ai/suggest-category', { method: 'POST', body: JSON.stringify({ product_name: name, description: desc }) }),
   optimizePrice: (productId) => request('/ai/optimize-price', { method: 'POST', body: JSON.stringify({ product_id: productId }) }),
   analyzeQuality: (productId) => request('/ai/analyze-quality', { method: 'POST', body: JSON.stringify({ product_id: productId }) }),
+  detectDuplicatesAi: (productId) => request('/ai/detect-duplicates', { method: 'POST', body: JSON.stringify({ product_id: productId }) }),
+  suggestMergeRules: (productIds) => request('/ai/merge-rules-suggest', { method: 'POST', body: JSON.stringify({ product_ids: productIds }) }),
+  pricingTrendAnalyzer: (productId, days) => request('/ai/pricing-trend-analyzer', { method: 'POST', body: JSON.stringify({ product_id: productId, days }) }),
   getAiJobs: (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return request(`/ai/jobs?${qs}`);
   },
 
   // Imports
-  getImports: () => request('/imports'),
+  getImports: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/imports?${qs}`);
+  },
   getImport: (id) => request(`/imports/${id}`),
   createImport: (data) => request('/imports', { method: 'POST', body: JSON.stringify(data) }),
   updateImport: (id, data) => request(`/imports/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -87,5 +97,6 @@ export const api = {
     const qs = new URLSearchParams(params).toString();
     return request(`/analytics/audit-log?${qs}`);
   },
+  getImportStatus: (id) => request(`/imports/${id}`),
   getMergeHistory: () => request('/analytics/merge-history'),
 };

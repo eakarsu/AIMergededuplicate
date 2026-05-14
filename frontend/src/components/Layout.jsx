@@ -17,6 +17,7 @@ const navItems = [
   ]},
   { section: 'AI & Analytics', items: [
     { path: '/ai-tools', icon: Sparkles, label: 'AI Tools' },
+    { path: '/ai-advanced', icon: Copy, label: 'AI Dedup & Merge' },
     { path: '/price-analysis', icon: DollarSign, label: 'Price Analysis' },
     { path: '/quality-reports', icon: ShieldCheck, label: 'Data Quality' },
   ]},

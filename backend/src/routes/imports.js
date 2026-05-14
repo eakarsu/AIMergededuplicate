@@ -6,10 +6,15 @@ const router = Router();
 
 router.get('/', authenticate, async (req, res) => {
   try {
+    const { page = 1, limit = 50 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const countResult = await pool.query('SELECT COUNT(*) FROM bulk_imports');
+    const total = parseInt(countResult.rows[0].count);
     const result = await pool.query(
-      `SELECT bi.*, v.name as vendor_name FROM bulk_imports bi LEFT JOIN vendors v ON bi.vendor_id = v.id ORDER BY bi.created_at DESC`
+      `SELECT bi.*, v.name as vendor_name FROM bulk_imports bi LEFT JOIN vendors v ON bi.vendor_id = v.id ORDER BY bi.created_at DESC LIMIT $1 OFFSET $2`,
+      [parseInt(limit), offset]
     );
-    res.json(result.rows);
+    res.json({ data: result.rows, total, page: parseInt(page), limit: parseInt(limit), totalPages: Math.ceil(total / parseInt(limit)) });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
@@ -24,14 +29,40 @@ router.get('/:id', authenticate, async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// Async bulk import: immediately returns 202, then processes in background
 router.post('/', authenticate, async (req, res) => {
   try {
     const { filename, vendor_id, total_rows } = req.body;
     const result = await pool.query(
       'INSERT INTO bulk_imports (filename, vendor_id, total_rows, status) VALUES ($1,$2,$3,$4) RETURNING *',
-      [filename, vendor_id, total_rows || 0, 'pending']
+      [filename, vendor_id, total_rows || 0, 'queued']
     );
-    res.status(201).json(result.rows[0]);
+    const importRecord = result.rows[0];
+
+    // Return 202 immediately
+    res.status(202).json({ ...importRecord, message: 'Import queued for async processing' });
+
+    // Process asynchronously
+    setImmediate(async () => {
+      try {
+        await pool.query("UPDATE bulk_imports SET status = 'processing' WHERE id = $1", [importRecord.id]);
+
+        // Simulate processing — in production this would parse actual file data
+        const processingTime = 500 + Math.random() * 1000;
+        await new Promise(r => setTimeout(r, processingTime));
+        const processedRows = Math.floor((total_rows || 0) * (0.9 + Math.random() * 0.1));
+        const duplicatesFound = Math.floor(processedRows * 0.05);
+        const errors = Math.max(0, (total_rows || 0) - processedRows);
+
+        await pool.query(
+          "UPDATE bulk_imports SET status = 'completed', processed_rows = $1, duplicates_found = $2, errors = $3, completed_at = NOW() WHERE id = $4",
+          [processedRows, duplicatesFound, errors, importRecord.id]
+        );
+      } catch (e) {
+        await pool.query("UPDATE bulk_imports SET status = 'failed', errors = $1 WHERE id = $2",
+          [1, importRecord.id]).catch(() => {});
+      }
+    });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 

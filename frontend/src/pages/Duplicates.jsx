@@ -4,8 +4,53 @@ import { Copy, X, GitMerge, XCircle, Sparkles, Search, Zap } from 'lucide-react'
 import AiResultDisplay from '../components/AiResultDisplay';
 import Toast from '../components/Toast';
 
+function MergeDiffView({ items, aiSuggestion }) {
+  if (!items || items.length < 2) return null;
+  const primary = items.find(i => i.is_primary) || items[0];
+  const secondary = items.find(i => !i.is_primary) || items[1];
+  const fields = ['name', 'sku', 'brand', 'price', 'stock_quantity', 'quality_score', 'vendor_name', 'description', 'barcode', 'weight'];
+
+  const getStrategy = (field) => {
+    if (!aiSuggestion?.merged_fields) return null;
+    return aiSuggestion.merged_fields.find(f => f.field === field);
+  };
+
+  const strategyColor = { keep_primary: '#10b981', keep_secondary: '#3b82f6', combine: '#8b5cf6', highest: '#f59e0b', lowest: '#6366f1' };
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <h4 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: '#1e293b' }}>Field Comparison</h4>
+      <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 1fr 80px', gap: 2, fontSize: 12 }}>
+        <div style={{ fontWeight: 600, color: '#64748b', padding: '6px 8px' }}>Field</div>
+        <div style={{ fontWeight: 600, color: '#10b981', padding: '6px 8px' }}>Primary</div>
+        <div style={{ fontWeight: 600, color: '#3b82f6', padding: '6px 8px' }}>Secondary</div>
+        <div style={{ fontWeight: 600, color: '#64748b', padding: '6px 8px' }}>Strategy</div>
+        {fields.map(field => {
+          const v1 = String(primary[field] || '-');
+          const v2 = String(secondary[field] || '-');
+          const differ = v1 !== v2;
+          const strat = getStrategy(field);
+          return (
+            <React.Fragment key={field}>
+              <div style={{ padding: '6px 8px', color: '#64748b', textTransform: 'capitalize', borderTop: '1px solid #f1f5f9' }}>{field.replace(/_/g, ' ')}</div>
+              <div style={{ padding: '6px 8px', background: differ ? '#f0fdf4' : 'transparent', borderTop: '1px solid #f1f5f9', fontWeight: differ ? 600 : 400 }}>{v1}</div>
+              <div style={{ padding: '6px 8px', background: differ ? '#eff6ff' : 'transparent', borderTop: '1px solid #f1f5f9', fontWeight: differ ? 600 : 400, color: differ ? '#3b82f6' : 'inherit' }}>{v2}</div>
+              <div style={{ padding: '6px 8px', borderTop: '1px solid #f1f5f9' }}>
+                {strat && <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600, background: (strategyColor[strat.strategy] || '#64748b') + '20', color: strategyColor[strat.strategy] || '#64748b' }}>{strat.strategy.replace(/_/g, ' ')}</span>}
+              </div>
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function Duplicates() {
   const [groups, setGroups] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState('');
@@ -18,17 +63,20 @@ export default function Duplicates() {
   const [pid1, setPid1] = useState('');
   const [pid2, setPid2] = useState('');
 
-  const load = async () => {
+  const load = async (p = 1) => {
     setLoading(true);
     try {
-      const [data, prods] = await Promise.all([api.getDuplicates(filter), api.getProducts({ limit: 100 })]);
-      setGroups(data);
-      setProducts(prods.products);
+      const [data, prods] = await Promise.all([api.getDuplicates(filter, p, 25), api.getProducts({ limit: 100 })]);
+      setGroups(data.data || data);
+      setTotal(data.total || (data.data || data).length);
+      setTotalPages(data.totalPages || 1);
+      setPage(p);
+      setProducts(prods.products || prods);
     } catch (err) { setToast({ message: err.message, type: 'error' }); }
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [filter]);
+  useEffect(() => { load(1); }, [filter]);
 
   const handleSelect = async (group) => {
     try { setSelected(await api.getDuplicate(group.id)); setAiResult(null); }
@@ -40,41 +88,34 @@ export default function Duplicates() {
     try {
       await api.mergeDuplicates(selected.id, primaryId);
       setToast({ message: 'Products merged successfully!', type: 'success' });
-      setSelected(null);
-      load();
+      setSelected(null); load(page);
     } catch (err) { setToast({ message: err.message, type: 'error' }); }
   };
 
   const handleDismiss = async (id) => {
-    try { await api.dismissDuplicate(id); setToast({ message: 'Group dismissed', type: 'success' }); setSelected(null); load(); }
+    try { await api.dismissDuplicate(id); setToast({ message: 'Group dismissed', type: 'success' }); setSelected(null); load(page); }
     catch (err) { setToast({ message: err.message, type: 'error' }); }
   };
 
   const getAiSuggestion = async () => {
     setAiLoading('merge');
-    try {
-      const result = await api.getAiMergeSuggestion(selected.id);
-      setAiResult(result);
-    } catch (err) { setToast({ message: err.message, type: 'error' }); }
+    try { setAiResult(await api.getAiMergeSuggestion(selected.id)); }
+    catch (err) { setToast({ message: err.message, type: 'error' }); }
     setAiLoading('');
   };
 
   const runDetect = async () => {
     if (!pid1 || !pid2) return;
     setAiLoading('detect');
-    try {
-      const result = await api.detectDuplicates(parseInt(pid1), parseInt(pid2));
-      setDetectResult(result);
-    } catch (err) { setToast({ message: err.message, type: 'error' }); }
+    try { setDetectResult(await api.detectDuplicates(parseInt(pid1), parseInt(pid2))); }
+    catch (err) { setToast({ message: err.message, type: 'error' }); }
     setAiLoading('');
   };
 
   const runAutoDetect = async () => {
     setAiLoading('auto');
-    try {
-      const result = await api.autoDetect();
-      setDetectResult({ auto: true, ...result });
-    } catch (err) { setToast({ message: err.message, type: 'error' }); }
+    try { setDetectResult({ auto: true, ...(await api.autoDetect()) }); }
+    catch (err) { setToast({ message: err.message, type: 'error' }); }
     setAiLoading('');
   };
 
@@ -83,7 +124,7 @@ export default function Duplicates() {
   return (
     <div>
       <div className="page-header">
-        <div><h2>Duplicate Detection</h2><p>{groups.length} duplicate groups found</p></div>
+        <div><h2>Duplicate Detection</h2><p>{total} duplicate groups found</p></div>
         <div className="btn-group">
           <button className="btn btn-secondary" onClick={() => setDetectMode(!detectMode)}>
             <Search size={16} /> {detectMode ? 'View Groups' : 'Detect Duplicates'}
@@ -118,11 +159,18 @@ export default function Duplicates() {
               </button>
             </div>
             {detectResult && !detectResult.auto && (
-              <AiResultDisplay title="Duplicate Detection Result" data={detectResult.ai_analysis} model={detectResult.model} usage={detectResult.usage} />
+              <div>
+                <AiResultDisplay title="Duplicate Detection Result" data={detectResult.ai_analysis} model={detectResult.model} usage={detectResult.usage} />
+                {detectResult.ai_analysis?._created_group_id && (
+                  <div style={{ marginTop: 8, padding: '8px 12px', background: '#f0fdf4', borderRadius: 8, fontSize: 13, color: '#16a34a', fontWeight: 600 }}>
+                    Duplicate group #{detectResult.ai_analysis._created_group_id} created automatically
+                  </div>
+                )}
+              </div>
             )}
             {detectResult && detectResult.auto && (
               <div>
-                <p style={{ fontWeight: 600, marginBottom: 12 }}>Found {detectResult.count} potential duplicate pairs</p>
+                <p style={{ fontWeight: 600, marginBottom: 12 }}>Found {detectResult.count} potential duplicate pairs — {detectResult.groups_created} new groups created</p>
                 {detectResult.potential_duplicates?.slice(0, 10).map((d, i) => (
                   <div key={i} style={{ padding: 12, border: '1px solid #e2e8f0', borderRadius: 8, marginBottom: 8 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -172,10 +220,19 @@ export default function Duplicates() {
             </tbody>
           </table>
         </div>
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
+            <span style={{ fontSize: 13, color: '#64748b' }}>Page {page} of {totalPages} — {total} total</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-secondary btn-sm" disabled={page <= 1} onClick={() => load(page - 1)}>Prev</button>
+              <button className="btn btn-secondary btn-sm" disabled={page >= totalPages} onClick={() => load(page + 1)}>Next</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {selected && (
-        <div className="detail-panel" style={{ width: 600 }}>
+        <div className="detail-panel" style={{ width: 680 }}>
           <div className="detail-header">
             <div><h3>{selected.name}</h3><span className={`badge badge-${selected.status === 'pending' ? 'warning' : selected.status === 'resolved' ? 'success' : 'gray'}`}>{selected.status}</span></div>
             <button className="btn btn-icon btn-secondary" onClick={() => { setSelected(null); setAiResult(null); }}><X size={18} /></button>
@@ -191,7 +248,7 @@ export default function Duplicates() {
 
             <h4 style={{ fontSize: 14, fontWeight: 600, margin: '20px 0 12px' }}>Products in Group</h4>
             <div className="compare-grid">
-              {selected.items?.map((item, idx) => (
+              {selected.items?.map((item) => (
                 <div key={item.product_id} className={`compare-card ${item.is_primary ? 'primary' : ''}`}>
                   {item.is_primary && <span className="badge badge-success" style={{ marginBottom: 8 }}>Primary</span>}
                   <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>{item.name}</h4>
@@ -211,6 +268,9 @@ export default function Duplicates() {
                 </div>
               ))}
             </div>
+
+            {/* Merge diff view — show after AI suggestion */}
+            {aiResult && <MergeDiffView items={selected.items} aiSuggestion={aiResult.ai_suggestion} />}
 
             {selected.status === 'pending' && (
               <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>

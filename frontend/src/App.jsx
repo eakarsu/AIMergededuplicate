@@ -7,6 +7,7 @@ import Vendors from './pages/Vendors';
 import Categories from './pages/Categories';
 import Duplicates from './pages/Duplicates';
 import AiTools from './pages/AiTools';
+import AiAdvancedTools from './pages/AiAdvancedTools';
 import BulkImports from './pages/BulkImports';
 import PriceAnalysis from './pages/PriceAnalysis';
 import QualityReports from './pages/QualityReports';
@@ -52,6 +53,7 @@ function App() {
           <Route path="/categories" element={<Categories />} />
           <Route path="/duplicates" element={<Duplicates />} />
           <Route path="/ai-tools" element={<AiTools />} />
+          <Route path="/ai-advanced" element={<AiAdvancedTools />} />
           <Route path="/imports" element={<BulkImports />} />
           <Route path="/price-analysis" element={<PriceAnalysis />} />
           <Route path="/quality-reports" element={<QualityReports />} />

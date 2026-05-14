@@ -7,6 +7,8 @@ import Toast from '../components/Toast';
 export default function Products() {
   const [products, setProducts] = useState([]);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
@@ -19,19 +21,21 @@ export default function Products() {
   const [aiLoading, setAiLoading] = useState('');
   const [form, setForm] = useState({ sku: '', name: '', description: '', brand: '', category_id: '', vendor_id: '', price: '', cost: '', stock_quantity: '', weight: '', dimensions: '', barcode: '', status: 'active' });
 
-  const load = async () => {
+  const load = async (p = 1) => {
     setLoading(true);
     try {
-      const [data, cats, vends] = await Promise.all([api.getProducts({ search }), api.getCategories(), api.getVendors()]);
+      const [data, cats, vends] = await Promise.all([api.getProducts({ search, page: p, limit: 25 }), api.getCategories(), api.getVendors()]);
       setProducts(data.products);
       setTotal(data.total);
+      setTotalPages(Math.ceil(data.total / 25));
+      setPage(p);
       setCategories(cats);
-      setVendors(vends);
+      setVendors(vends.data || vends);
     } catch (err) { setToast({ message: err.message, type: 'error' }); }
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [search]);
+  useEffect(() => { load(1); }, [search]);
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -45,7 +49,7 @@ export default function Products() {
       }
       setShowForm(false);
       setEditItem(null);
-      load();
+      load(page);
     } catch (err) { setToast({ message: err.message, type: 'error' }); }
   };
 
@@ -55,7 +59,7 @@ export default function Products() {
       await api.deleteProduct(id);
       setToast({ message: 'Product deleted', type: 'success' });
       setSelected(null);
-      load();
+      load(page);
     } catch (err) { setToast({ message: err.message, type: 'error' }); }
   };
 
@@ -242,6 +246,16 @@ export default function Products() {
                 <button type="submit" className="btn btn-primary">{editItem ? 'Update' : 'Create'} Product</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', marginTop: 8 }}>
+          <span style={{ fontSize: 13, color: '#64748b' }}>Page {page} of {totalPages} — {total} total products</span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-secondary btn-sm" disabled={page <= 1} onClick={() => load(page - 1)}>Prev</button>
+            <button className="btn btn-secondary btn-sm" disabled={page >= totalPages} onClick={() => load(page + 1)}>Next</button>
           </div>
         </div>
       )}

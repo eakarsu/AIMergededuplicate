@@ -45,16 +45,27 @@ router.get('/quality-reports', authenticate, async (req, res) => {
 
 router.get('/audit-log', authenticate, async (req, res) => {
   try {
-    const { entity_type, action, limit = 50 } = req.query;
+    const { entity_type, action, page = 1, limit = 50 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    let countQ = 'SELECT COUNT(*) FROM audit_log WHERE 1=1';
     let query = `SELECT al.*, u.name as user_name FROM audit_log al LEFT JOIN users u ON al.user_id = u.id WHERE 1=1`;
     const params = [];
+    const countParams = [];
     let idx = 1;
-    if (entity_type) { query += ` AND al.entity_type = $${idx}`; params.push(entity_type); idx++; }
-    if (action) { query += ` AND al.action = $${idx}`; params.push(action); idx++; }
-    query += ` ORDER BY al.created_at DESC LIMIT $${idx}`;
-    params.push(parseInt(limit));
+    if (entity_type) {
+      query += ` AND al.entity_type = $${idx}`; params.push(entity_type);
+      countQ += ` AND entity_type = $${idx}`; countParams.push(entity_type); idx++;
+    }
+    if (action) {
+      query += ` AND al.action = $${idx}`; params.push(action);
+      countQ += ` AND action = $${idx}`; countParams.push(action); idx++;
+    }
+    const countResult = await pool.query(countQ, countParams);
+    const total = parseInt(countResult.rows[0].count);
+    query += ` ORDER BY al.created_at DESC LIMIT $${idx} OFFSET $${idx + 1}`;
+    params.push(parseInt(limit), offset);
     const result = await pool.query(query, params);
-    res.json(result.rows);
+    res.json({ data: result.rows, total, page: parseInt(page), limit: parseInt(limit), totalPages: Math.ceil(total / parseInt(limit)) });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
