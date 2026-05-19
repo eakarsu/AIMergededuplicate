@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Package, Users, FolderTree, Copy, Sparkles, Upload, DollarSign, ShieldCheck, ScrollText, GitMerge, LayoutDashboard, LogOut } from 'lucide-react';
+import { Package, Users, FolderTree, Copy, Sparkles, Upload, DollarSign, ShieldCheck, ScrollText, GitMerge, LayoutDashboard, LogOut, Network } from 'lucide-react';
 
 const navItems = [
   { section: 'Overview', items: [
@@ -20,6 +20,7 @@ const navItems = [
     { path: '/ai-advanced', icon: Copy, label: 'AI Dedup & Merge' },
     { path: '/price-analysis', icon: DollarSign, label: 'Price Analysis' },
     { path: '/quality-reports', icon: ShieldCheck, label: 'Data Quality' },
+    { path: '/custom-views', icon: Network, label: 'Dedupe Analytics' },
   ]},
   { section: 'System', items: [
     { path: '/imports', icon: Upload, label: 'Bulk Imports' },

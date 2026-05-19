@@ -13,6 +13,7 @@ import PriceAnalysis from './pages/PriceAnalysis';
 import QualityReports from './pages/QualityReports';
 import AuditLog from './pages/AuditLog';
 import MergeHistory from './pages/MergeHistory';
+import CustomViewsPage from './pages/CustomViewsPage';
 import Layout from './components/Layout';
 
 function App() {
@@ -59,6 +60,7 @@ function App() {
           <Route path="/quality-reports" element={<QualityReports />} />
           <Route path="/audit-log" element={<AuditLog />} />
           <Route path="/merge-history" element={<MergeHistory />} />
+          <Route path="/custom-views" element={<CustomViewsPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
