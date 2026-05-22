@@ -20,6 +20,7 @@ import aiBacklogRoutes from './routes/aiBacklog.js';
 import importRoutes from './routes/imports.js';
 import analyticsRoutes from './routes/analytics.js';
 import customViewsRoutes from './routes/customViews.js';
+import goldenRecordConfidenceRoutes from './routes/goldenRecordConfidence.js';
 
 // === BATCH 05 AUTO-MOUNT imports ===
 import dedupeMergeAgentRouter from './routes/dedupe-merge-agent.js';
@@ -95,6 +96,7 @@ app.use('/api/ai-backlog', aiBacklogRoutes);
 app.use('/api/imports', importRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/custom-views', customViewsRoutes);
+app.use('/api/golden-record-confidence', goldenRecordConfidenceRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 

@@ -3,7 +3,7 @@
 // Mounted under: /api/vertical-templates
 import { Router } from 'express';
 import https from 'https';
-const auth = require('../middleware/auth');
+import * as auth from '../middleware/auth.js';
 const router = Router();
 
 router.use((req, res, next) => (typeof auth === 'function' ? auth(req, res, next) : (auth.authenticateToken ? auth.authenticateToken(req, res, next) : next())));

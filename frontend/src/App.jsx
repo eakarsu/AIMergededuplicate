@@ -14,7 +14,11 @@ import QualityReports from './pages/QualityReports';
 import AuditLog from './pages/AuditLog';
 import MergeHistory from './pages/MergeHistory';
 import CustomViewsPage from './pages/CustomViewsPage';
+import GoldenRecordConfidence from './pages/GoldenRecordConfidence';
 import Layout from './components/Layout';
+
+import CodexCustomVizFeature from './pages/CodexCustomVizFeature';
+import CodexOperationsFeature from './pages/CodexOperationsFeature';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -46,6 +50,9 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/codex/custom-viz" element={<CodexCustomVizFeature />} />
+        <Route path="/codex/operations" element={<CodexOperationsFeature />} />
+
         <Route path="/login" element={user ? <Navigate to="/" /> : <Login onLogin={handleLogin} />} />
         <Route element={user ? <Layout user={user} onLogout={handleLogout} /> : <Navigate to="/login" />}>
           <Route path="/" element={<Dashboard />} />
@@ -61,6 +68,7 @@ function App() {
           <Route path="/audit-log" element={<AuditLog />} />
           <Route path="/merge-history" element={<MergeHistory />} />
           <Route path="/custom-views" element={<CustomViewsPage />} />
+          <Route path="/golden-record-confidence" element={<GoldenRecordConfidence />} />
         </Route>
       </Routes>
     </BrowserRouter>

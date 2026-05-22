@@ -120,6 +120,8 @@ psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "
   DROP TABLE IF EXISTS merge_history CASCADE;
   DROP TABLE IF EXISTS duplicate_group_items CASCADE;
   DROP TABLE IF EXISTS duplicate_groups CASCADE;
+  DROP TABLE IF EXISTS merge_decisions CASCADE;
+  DROP TABLE IF EXISTS dedupe_rules CASCADE;
   DROP TABLE IF EXISTS products CASCADE;
   DROP TABLE IF EXISTS categories CASCADE;
   DROP TABLE IF EXISTS vendors CASCADE;
