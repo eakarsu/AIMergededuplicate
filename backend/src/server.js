@@ -21,6 +21,7 @@ import importRoutes from './routes/imports.js';
 import analyticsRoutes from './routes/analytics.js';
 import customViewsRoutes from './routes/customViews.js';
 import goldenRecordConfidenceRoutes from './routes/goldenRecordConfidence.js';
+import knowledgeWorkflowRoutes from './routes/knowledgeWorkflow.js';
 
 // === BATCH 05 AUTO-MOUNT imports ===
 import dedupeMergeAgentRouter from './routes/dedupe-merge-agent.js';
@@ -35,7 +36,7 @@ const PORT = process.env.BACKEND_PORT || 4000;
 // Security
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -97,6 +98,12 @@ app.use('/api/imports', importRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/custom-views', customViewsRoutes);
 app.use('/api/golden-record-confidence', goldenRecordConfidenceRoutes);
+app.use('/api/knowledge-workflow', knowledgeWorkflowRoutes);
+
+app.use(/^\/api\/(?:gap-|dedupe-merge-agent|vision-product-enrich|quality-anomaly-stream|channel-sync|vertical-templates)/, (req,res,next) => {
+  if (process.env.ENABLE_EXPERIMENTAL_ROUTES === 'true') return next();
+  return res.status(501).json({error:'Generated/provider-backed surface is quarantined',required:'ENABLE_EXPERIMENTAL_ROUTES=true plus documented provider configuration'});
+});
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 

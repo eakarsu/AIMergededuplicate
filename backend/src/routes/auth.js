@@ -2,6 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import pool from '../db/connection.js';
 import { generateToken } from '../middleware/auth.js';
+import { jwtSecret } from '../config/security.js';
 
 const router = Router();
 
@@ -30,7 +31,7 @@ router.get('/me', async (req, res) => {
     if (!authHeader) return res.status(401).json({ error: 'No token' });
     const token = authHeader.split(' ')[1];
     const jwt = await import('jsonwebtoken');
-    const decoded = jwt.default.verify(token, process.env.JWT_SECRET || 'ecommerce-catalog-secret-key-2024');
+    const decoded = jwt.default.verify(token, jwtSecret());
     const result = await pool.query('SELECT id, email, name, role FROM users WHERE id = $1', [decoded.id]);
     res.json(result.rows[0]);
   } catch (error) {
