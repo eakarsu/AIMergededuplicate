@@ -5,11 +5,13 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import bcrypt from 'bcryptjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 import pool from './db/connection.js';
+import { createTables } from './db/schema.js';
 import authRoutes from './routes/auth.js';
 import productRoutes from './routes/products.js';
 import vendorRoutes from './routes/vendors.js';
@@ -32,6 +34,21 @@ import verticalTemplatesRouter from './routes/vertical-templates.js';
 
 const app = express();
 const PORT = process.env.BACKEND_PORT || 4000;
+
+async function initializeRuntime() {
+  if (process.env.MIGRATE_ON_START !== 'true') return;
+  const email = process.env.PROVISION_ADMIN_EMAIL || process.env.ADMIN_EMAIL;
+  const password = process.env.PROVISION_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD;
+  if (!email || !password) throw new Error('Runtime admin credentials are required');
+  await createTables();
+  const passwordHash = await bcrypt.hash(password, 10);
+  await pool.query(
+    `INSERT INTO users (email, password, name, role)
+     VALUES ($1, $2, $3, 'admin')
+     ON CONFLICT (email) DO UPDATE SET password = EXCLUDED.password, name = EXCLUDED.name, role = EXCLUDED.role`,
+    [email, passwordHash, process.env.PROVISION_ADMIN_NAME || 'Runtime Administrator']
+  );
+}
 
 // Security
 app.use(helmet());
@@ -107,9 +124,12 @@ app.use(/^\/api\/(?:gap-|dedupe-merge-agent|vision-product-enrich|quality-anomal
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
-app.listen(PORT, () => {
-  console.log(`Backend server running on http://localhost:${PORT}`);
-});
+initializeRuntime()
+  .then(() => app.listen(PORT, () => console.log(`Backend server running on http://localhost:${PORT}`)))
+  .catch((error) => {
+    console.error('Runtime initialization failed:', error.message);
+    process.exit(1);
+  });
 
 
 // === BATCH 05 AUTO-MOUNT (custom feature suggestions) ===
@@ -119,16 +139,4 @@ app.use('/api/quality-anomaly-stream', qualityAnomalyStreamRouter);
 app.use('/api/channel-sync', channelSyncRouter);
 app.use('/api/vertical-templates', verticalTemplatesRouter);
 
-// === Batch 05 Gaps & Frontend Mounts ===
-try { const _gap_detect_duplicates_realtime = require('./routes/gap-detect-duplicates-realtime'); app.use('/api/gap-detect-duplicates-realtime', _gap_detect_duplicates_realtime); } catch(e) { console.error('gap mount fail detect-duplicates-realtime:', e.message); }
-try { const _gap_merge_rules_suggest = require('./routes/gap-merge-rules-suggest'); app.use('/api/gap-merge-rules-suggest', _gap_merge_rules_suggest); } catch(e) { console.error('gap mount fail merge-rules-suggest:', e.message); }
-try { const _gap_image_similarity = require('./routes/gap-image-similarity'); app.use('/api/gap-image-similarity', _gap_image_similarity); } catch(e) { console.error('gap mount fail image-similarity:', e.message); }
-try { const _gap_pricing_trend_analyzer = require('./routes/gap-pricing-trend-analyzer'); app.use('/api/gap-pricing-trend-analyzer', _gap_pricing_trend_analyzer); } catch(e) { console.error('gap mount fail pricing-trend-analyzer:', e.message); }
-try { const _gap_image = require('./routes/gap-image'); app.use('/api/gap-image', _gap_image); } catch(e) { console.error('gap mount fail image:', e.message); }
-try { const _gap_bulk = require('./routes/gap-bulk'); app.use('/api/gap-bulk', _gap_bulk); } catch(e) { console.error('gap mount fail bulk:', e.message); }
-try { const _gap_merge = require('./routes/gap-merge'); app.use('/api/gap-merge', _gap_merge); } catch(e) { console.error('gap mount fail merge:', e.message); }
-try { const _gap_ecommerce = require('./routes/gap-ecommerce'); app.use('/api/gap-ecommerce', _gap_ecommerce); } catch(e) { console.error('gap mount fail ecommerce:', e.message); }
-try { const _gap_inventory = require('./routes/gap-inventory'); app.use('/api/gap-inventory', _gap_inventory); } catch(e) { console.error('gap mount fail inventory:', e.message); }
-try { const _gap_supplier = require('./routes/gap-supplier'); app.use('/api/gap-supplier', _gap_supplier); } catch(e) { console.error('gap mount fail supplier:', e.message); }
-try { const _gap_notifications = require('./routes/gap-notifications'); app.use('/api/gap-notifications', _gap_notifications); } catch(e) { console.error('gap mount fail notifications:', e.message); }
-// === End Batch 05 Mounts ===
+// Generated gap routes remain quarantined until their ESM/auth/provider contracts are complete.
